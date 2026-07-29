@@ -1576,6 +1576,7 @@ export interface UsageLog {
   // User-Agent
   user_agent: string | null
   ip_address?: string | null
+  session_id?: string | null
 
   // Cache TTL Override
   cache_ttl_overridden: boolean
@@ -1597,6 +1598,15 @@ export interface UsageLogAccountSummary {
 }
 
 export interface AdminUsageLog extends UsageLog {
+  refund_amount?: number
+  refund_reason?: string | null
+  refunded_at?: string | null
+  refunded_by?: number | null
+
+  request_data?: string | null
+  request_data_encoding?: 'utf-8' | 'base64' | null
+  request_content_type?: string | null
+
   upstream_model?: string | null
   model_mapping_chain?: string | null
 

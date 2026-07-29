@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -13,8 +14,21 @@ import (
 )
 
 var (
-	ErrUsageLogNotFound = infraerrors.NotFound("USAGE_LOG_NOT_FOUND", "usage log not found")
+	ErrUsageLogNotFound      = infraerrors.NotFound("USAGE_LOG_NOT_FOUND", "usage log not found")
+	ErrUsageAlreadyRefunded  = infraerrors.Conflict("USAGE_ALREADY_REFUNDED", "usage charge has already been refunded")
+	ErrUsageNotRefundable    = infraerrors.BadRequest("USAGE_NOT_REFUNDABLE", "usage record has no refundable charge")
+	ErrUsageRefundIncomplete = infraerrors.Conflict("USAGE_REFUND_INCOMPLETE", "usage billing record cannot be reversed")
 )
+
+type RefundUsageInput struct {
+	UsageID int64
+	AdminID int64
+	Reason  string
+}
+
+type usageRefundRepository interface {
+	RefundUsage(context.Context, RefundUsageInput) (int64, error)
+}
 
 // CreateUsageLogRequest 创建使用日志请求
 type CreateUsageLogRequest struct {
@@ -60,15 +74,17 @@ type UsageService struct {
 	userRepo             UserRepository
 	entClient            *dbent.Client
 	authCacheInvalidator APIKeyAuthCacheInvalidator
+	billingCache         *BillingCacheService
 }
 
 // NewUsageService 创建使用统计服务实例
-func NewUsageService(usageRepo UsageLogRepository, userRepo UserRepository, entClient *dbent.Client, authCacheInvalidator APIKeyAuthCacheInvalidator) *UsageService {
+func NewUsageService(usageRepo UsageLogRepository, userRepo UserRepository, entClient *dbent.Client, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCache *BillingCacheService) *UsageService {
 	return &UsageService{
 		usageRepo:            usageRepo,
 		userRepo:             userRepo,
 		entClient:            entClient,
 		authCacheInvalidator: authCacheInvalidator,
+		billingCache:         billingCache,
 	}
 }
 
@@ -115,6 +131,10 @@ func (s *UsageService) Create(ctx context.Context, req CreateUsageLogRequest) (*
 		Stream:                req.Stream,
 		DurationMs:            req.DurationMs,
 	}
+	if requestData, ok := usageRequestDataFromContext(ctx); ok {
+		usageLog.RequestData = requestData.data
+		usageLog.RequestContentType = optionalTrimmedStringPtr(requestData.contentType)
+	}
 
 	inserted, err := s.usageRepo.Create(txCtx, usageLog)
 	if err != nil {
@@ -153,6 +173,66 @@ func (s *UsageService) GetByID(ctx context.Context, id int64) (*UsageLog, error)
 	log, err := s.usageRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("get usage log: %w", err)
+	}
+	return log, nil
+}
+
+// Refund reverses the financial charge of one usage record exactly once.
+func (s *UsageService) Refund(ctx context.Context, input RefundUsageInput) (*UsageLog, error) {
+	input.Reason = strings.TrimSpace(input.Reason)
+	if input.UsageID <= 0 || input.AdminID <= 0 || input.Reason == "" || len([]rune(input.Reason)) > 500 {
+		return nil, infraerrors.BadRequest("INVALID_USAGE_REFUND", "usage ID, administrator and a refund reason of at most 500 characters are required")
+	}
+	repo, ok := s.usageRepo.(usageRefundRepository)
+	if !ok {
+		return nil, fmt.Errorf("usage repository does not support refunds")
+	}
+	userID, err := repo.RefundUsage(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	if s.authCacheInvalidator != nil {
+		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
+	}
+	record, err := s.GetByID(ctx, input.UsageID)
+	if err != nil {
+		return nil, err
+	}
+	if s.billingCache != nil {
+		switch record.BillingType {
+		case BillingTypeBalance:
+			_ = s.billingCache.InvalidateUserBalance(ctx, userID)
+		case BillingTypeSubscription:
+			if record.GroupID != nil {
+				_ = s.billingCache.InvalidateSubscription(ctx, userID, *record.GroupID)
+			}
+		}
+	}
+	return record, nil
+}
+
+type usageLogOwnerDetailRepository interface {
+	GetByIDForUser(ctx context.Context, id, userID int64) (*UsageLog, error)
+}
+
+// GetByIDForUser loads a detail row only when it belongs to the requesting
+// user. The repository-level filter prevents another user's request body from
+// being loaded before ownership is checked.
+func (s *UsageService) GetByIDForUser(ctx context.Context, id, userID int64) (*UsageLog, error) {
+	var (
+		log *UsageLog
+		err error
+	)
+	if ownerRepo, ok := s.usageRepo.(usageLogOwnerDetailRepository); ok {
+		log, err = ownerRepo.GetByIDForUser(ctx, id, userID)
+	} else {
+		log, err = s.usageRepo.GetByID(ctx, id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get usage log for user: %w", err)
+	}
+	if log == nil || log.UserID != userID {
+		return nil, ErrUsageLogNotFound
 	}
 	return log, nil
 }

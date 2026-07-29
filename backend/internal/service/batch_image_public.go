@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -257,6 +258,12 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 	accountID := account.ID
 	holdID := BatchImageHoldRequestID(batchID)
 	holdAmount := pricingSnapshot.HoldAmount
+	var requestData []byte
+	var requestContentType *string
+	if snapshot, ok := usageRequestDataFromContext(ctx); ok {
+		requestData = bytes.Clone(snapshot.data)
+		requestContentType = batchImageOptionalStringPtr(snapshot.contentType)
+	}
 	job, err := s.Repo.CreateBatchImageJob(ctx, CreateBatchImageJobParams{
 		BatchID:                 batchID,
 		UserID:                  owner.UserID,
@@ -283,6 +290,8 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 		IdempotencyKey:          batchImageOptionalStringPtr(idempotencyKey),
 		RequestHash:             batchImageStringPtr(requestHash),
 		SessionID:               normalized.SessionID,
+		RequestData:             requestData,
+		RequestContentType:      requestContentType,
 	})
 	if err != nil {
 		return nil, err

@@ -371,24 +371,19 @@ func (h *UsageHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	usageID, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
+	usageID, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || usageID <= 0 {
 		response.BadRequest(c, "Invalid usage ID")
 		return
 	}
 
-	record, err := h.usageService.GetByID(c.Request.Context(), usageID)
+	record, err := h.usageService.GetByIDForUser(c.Request.Context(), usageID, subject.UserID)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 
-	// 验证所有权
-	if record.UserID != subject.UserID {
-		response.Forbidden(c, "Not authorized to access this record")
-		return
-	}
-
+	c.Header("Cache-Control", "no-store")
 	response.Success(c, dto.UsageLogFromService(record))
 }
 

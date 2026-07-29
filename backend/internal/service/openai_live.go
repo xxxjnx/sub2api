@@ -223,6 +223,10 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 			InboundEndpoint:       identity.InboundEndpoint,
 			AttestationCiphertext: attestationCiphertext,
 		}
+		if requestData, ok := usageRequestDataFromContext(ctx); ok {
+			record.RequestData = bytes.Clone(requestData.data)
+			record.RequestContentType = requestData.contentType
+		}
 		mappingTTL := s.liveMaxSessionDuration() + 5*time.Minute
 		if saveErr := store.SaveLiveCall(ctx, record, mappingTTL); saveErr != nil {
 			s.releaseLiveLease(account.ID, identity.UserID, identity.APIKeyID, leaseID)
@@ -771,22 +775,24 @@ func (s *OpenAIGatewayService) finalizeLiveCall(record *LiveCallRecord) {
 		billingType = BillingTypeSubscription
 	}
 	_, _ = s.usageLogRepo.Create(context.Background(), &UsageLog{
-		UserID:           record.UserID,
-		APIKeyID:         record.APIKeyID,
-		AccountID:        record.AccountID,
-		RequestID:        record.CallHash,
-		Model:            record.Model,
-		RequestedModel:   record.Model,
-		GroupID:          liveOptionalID(record.GroupID),
-		SubscriptionID:   liveOptionalID(record.SubscriptionID),
-		RateMultiplier:   1,
-		BillingType:      billingType,
-		RequestType:      RequestTypeLive,
-		DurationMs:       &duration,
-		UserAgent:        &userAgent,
-		IPAddress:        &ipAddress,
-		InboundEndpoint:  &inboundEndpoint,
-		UpstreamEndpoint: &upstreamEndpoint,
-		CreatedAt:        record.CreatedAt,
+		UserID:             record.UserID,
+		APIKeyID:           record.APIKeyID,
+		AccountID:          record.AccountID,
+		RequestID:          record.CallHash,
+		Model:              record.Model,
+		RequestedModel:     record.Model,
+		GroupID:            liveOptionalID(record.GroupID),
+		SubscriptionID:     liveOptionalID(record.SubscriptionID),
+		RateMultiplier:     1,
+		BillingType:        billingType,
+		RequestType:        RequestTypeLive,
+		DurationMs:         &duration,
+		UserAgent:          &userAgent,
+		IPAddress:          &ipAddress,
+		InboundEndpoint:    &inboundEndpoint,
+		UpstreamEndpoint:   &upstreamEndpoint,
+		RequestData:        bytes.Clone(record.RequestData),
+		RequestContentType: optionalTrimmedStringPtr(record.RequestContentType),
+		CreatedAt:          record.CreatedAt,
 	})
 }

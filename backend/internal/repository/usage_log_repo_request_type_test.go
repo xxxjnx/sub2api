@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
+	"regexp"
 	"testing"
 	"time"
 
@@ -15,6 +16,22 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
+
+func TestUsageLogRepositoryGetByIDForUserScopesDetailQueryToOwner(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+	query := "SELECT " + usageLogSelectColumns + " FROM usage_logs WHERE id = $1 AND user_id = $2"
+	require.Contains(t, query, "NULL::bytea AS request_data")
+	sentinel := fmt.Errorf("stop after scoped query")
+	mock.ExpectQuery(regexp.QuoteMeta(query)).
+		WithArgs(int64(42), int64(7)).
+		WillReturnError(sentinel)
+
+	_, err := repo.GetByIDForUser(context.Background(), 42, 7)
+
+	require.ErrorIs(t, err, sentinel)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
 
 func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 	db, mock := newSQLMock(t)
@@ -97,6 +114,8 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // billing_mode
 			sqlmock.AnyArg(), // account_stats_cost
 			sqlmock.AnyArg(), // session_id
+			sqlmock.AnyArg(), // request_data
+			sqlmock.AnyArg(), // request_content_type
 			createdAt,
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(99), createdAt))
@@ -187,6 +206,8 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(), // billing_mode
 			sqlmock.AnyArg(), // account_stats_cost
 			sqlmock.AnyArg(), // session_id
+			sqlmock.AnyArg(), // request_data
+			sqlmock.AnyArg(), // request_content_type
 			createdAt,
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(100), createdAt))
@@ -250,6 +271,24 @@ func TestPrepareUsageLogInsert_ArgCountMatchesTypes(t *testing.T) {
 	})
 
 	require.Len(t, prepared.args, len(usageLogInsertArgTypes))
+}
+
+func TestPrepareUsageLogInsert_PersistsRawRequestDataVerbatim(t *testing.T) {
+	contentType := "application/json"
+	requestData := []byte("{\n  \"authorization\": \"Bearer raw-secret\",\n  \"input\": \"original text\"\n}")
+	prepared := prepareUsageLogInsert(&service.UsageLog{
+		UserID:             1,
+		APIKeyID:           2,
+		AccountID:          3,
+		RequestID:          "req-raw-request-data",
+		Model:              "gpt-5",
+		RequestData:        requestData,
+		RequestContentType: &contentType,
+		CreatedAt:          time.Date(2025, 1, 5, 12, 0, 0, 0, time.UTC),
+	})
+
+	require.Equal(t, requestData, prepared.args[56])
+	require.Equal(t, sql.NullString{String: contentType, Valid: true}, prepared.args[57])
 }
 
 func TestPrepareUsageLogInsert_PersistsImageSizeMetadata(t *testing.T) {
@@ -815,6 +854,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_output_tokens, image_output_cost
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.0, 0.0, 0.0, 0.0, 0.8, 0.8,
+			0.0, sql.NullString{}, sql.NullTime{}, sql.NullInt64{},
 			1.0,
 			sql.NullFloat64{},
 			int16(service.BillingTypeBalance),
@@ -846,6 +886,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},
 			sql.NullFloat64{},
 			sql.NullString{},
+			[]byte(`{"secret":"shown-verbatim"}`),
+			sql.NullString{Valid: true, String: "application/json"},
 			now,
 		}})
 		require.NoError(t, err)
@@ -859,6 +901,9 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 		require.NotNil(t, log.ImageSizeSource)
 		require.Equal(t, "output", *log.ImageSizeSource)
 		require.Equal(t, map[string]int{"4K": 2}, log.ImageSizeBreakdown)
+		require.Equal(t, []byte(`{"secret":"shown-verbatim"}`), log.RequestData)
+		require.NotNil(t, log.RequestContentType)
+		require.Equal(t, "application/json", *log.RequestContentType)
 	})
 
 	t.Run("request_type_ws_v2_overrides_legacy", func(t *testing.T) {
@@ -890,6 +935,10 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0.4,               // cache_read_cost
 			1.0,               // total_cost
 			0.9,               // actual_cost
+			0.0,               // refund_amount
+			sql.NullString{},  // refund_reason
+			sql.NullTime{},    // refunded_at
+			sql.NullInt64{},   // refunded_by
 			1.0,               // rate_multiplier
 			sql.NullFloat64{}, // account_rate_multiplier
 			int16(service.BillingTypeBalance),
@@ -921,6 +970,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // billing_mode
 			sql.NullFloat64{}, // account_stats_cost
 			sql.NullString{},  // session_id
+			[]byte(nil),       // request_data
+			sql.NullString{},  // request_content_type
 			now,
 		}})
 		require.NoError(t, err)
@@ -948,6 +999,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_output_tokens, image_output_cost
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.1, 0.2, 0.3, 0.4, 1.0, 0.9,
+			0.0, sql.NullString{}, sql.NullTime{}, sql.NullInt64{},
 			1.0,
 			sql.NullFloat64{},
 			int16(service.BillingTypeBalance),
@@ -979,6 +1031,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // billing_mode
 			sql.NullFloat64{}, // account_stats_cost
 			sql.NullString{},  // session_id
+			[]byte(nil),       // request_data
+			sql.NullString{},  // request_content_type
 			now,
 		}})
 		require.NoError(t, err)
@@ -1006,6 +1060,7 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			0, 0.0, // image_output_tokens, image_output_cost
 			0, 0.0, // image_input_tokens, image_input_cost
 			0.1, 0.2, 0.3, 0.4, 1.0, 0.9,
+			0.0, sql.NullString{}, sql.NullTime{}, sql.NullInt64{},
 			1.0,
 			sql.NullFloat64{},
 			int16(service.BillingTypeBalance),
@@ -1037,6 +1092,8 @@ func TestScanUsageLogRequestTypeAndLegacyFallback(t *testing.T) {
 			sql.NullString{},  // billing_mode
 			sql.NullFloat64{}, // account_stats_cost
 			sql.NullString{},  // session_id
+			[]byte(nil),       // request_data
+			sql.NullString{},  // request_content_type
 			now,
 		}})
 		require.NoError(t, err)

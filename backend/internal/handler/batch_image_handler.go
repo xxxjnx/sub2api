@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -29,8 +30,15 @@ func NewBatchImageHandler(service *service.BatchImagePublicService, download *se
 }
 
 func (h *BatchImageHandler) Submit(c *gin.Context) {
+	raw, err := pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
+	if err != nil {
+		batchImageError(c, service.ErrBatchImageInvalidItems)
+		return
+	}
+	captureUsageRequestData(c, raw)
+
 	var req service.BatchImageSubmitRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.Unmarshal(raw, &req); err != nil {
 		batchImageError(c, service.ErrBatchImageInvalidItems)
 		return
 	}

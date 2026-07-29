@@ -545,6 +545,17 @@ type UsageLog struct {
 type AdminUsageLog struct {
 	UsageLog
 
+	RefundAmount float64    `json:"refund_amount"`
+	RefundReason *string    `json:"refund_reason,omitempty"`
+	RefundedAt   *time.Time `json:"refunded_at,omitempty"`
+	RefundedBy   *int64     `json:"refunded_by,omitempty"`
+
+	// RequestData is the original client request body. It is intentionally
+	// available only from administrator usage-detail responses.
+	RequestData         *string `json:"request_data,omitempty"`
+	RequestDataEncoding *string `json:"request_data_encoding,omitempty"`
+	RequestContentType  *string `json:"request_content_type,omitempty"`
+
 	// UpstreamModel is the actual model sent to the upstream provider after mapping.
 	// Omitted when no mapping was applied (requested model was used as-is).
 	UpstreamModel *string `json:"upstream_model,omitempty"`

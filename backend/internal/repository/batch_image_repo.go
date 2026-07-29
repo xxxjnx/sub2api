@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -86,7 +87,7 @@ func (r *batchImageRepository) ListBatchImageJobsForOwner(ctx context.Context, u
 		filter.Offset = 0
 	}
 
-	query := batchImageJobSelectSQL + " WHERE user_id = $1 AND api_key_id = $2"
+	query := batchImageJobListSelectSQL + " WHERE user_id = $1 AND api_key_id = $2"
 	args := []any{userID, apiKeyID}
 	if filter.ExcludeDeleted {
 		query += " AND user_deleted_at IS NULL"
@@ -571,7 +572,7 @@ func (r *batchImageRepository) ListBatchImageJobsDueForInputCleanup(ctx context.
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
-	rows, err := r.sql.QueryContext(ctx, batchImageJobSelectSQL+`
+	rows, err := r.sql.QueryContext(ctx, batchImageJobListSelectSQL+`
  WHERE input_deleted_at IS NULL
    AND provider_input_ref IS NOT NULL
    AND status IN ('completed', 'failed', 'cancelled', 'output_deleted')
@@ -589,7 +590,7 @@ func (r *batchImageRepository) ListBatchImageJobsDueForOutputCleanup(ctx context
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
-	rows, err := r.sql.QueryContext(ctx, batchImageJobSelectSQL+`
+	rows, err := r.sql.QueryContext(ctx, batchImageJobListSelectSQL+`
  WHERE output_deleted_at IS NULL
    AND provider_output_ref IS NOT NULL
    AND status = 'completed'
@@ -608,7 +609,7 @@ func (r *batchImageRepository) ListStaleUnsubmittedBatchImageJobs(ctx context.Co
 	if limit <= 0 || limit > 1000 {
 		limit = 100
 	}
-	rows, err := r.sql.QueryContext(ctx, batchImageJobSelectSQL+`
+	rows, err := r.sql.QueryContext(ctx, batchImageJobListSelectSQL+`
  WHERE status IN ('created', 'uploading')
    AND provider_job_name IS NULL
    AND COALESCE(hold_amount, estimated_cost, 0) > 0
@@ -750,7 +751,8 @@ INSERT INTO batch_image_jobs (
     batch_discount_multiplier, hold_multiplier, billable_unit_price, hold_unit_price,
     pricing_snapshot_version,
     currency, hold_id,
-    idempotency_key, request_hash, manifest_hash, retry_count, session_id, output_expires_at
+    idempotency_key, request_hash, manifest_hash, retry_count, session_id, output_expires_at,
+    request_data, request_content_type
 ) VALUES (
     $1, $2, $3, $4, $5, $6, $7, $8, $9,
     $10, $11, $12, $13, $14,
@@ -760,7 +762,8 @@ INSERT INTO batch_image_jobs (
     $25, $26, $27, $28,
     $29,
     $30, $31,
-    $32, $33, $34, $35, $36, $37
+    $32, $33, $34, $35, $36, $37,
+    $38, $39
 )
 RETURNING `+batchImageJobColumns,
 		params.BatchID, params.UserID, params.APIKeyID, params.AccountID, params.Provider, params.Model, params.TaskName, params.ParentBatchID, params.Status,
@@ -772,6 +775,7 @@ RETURNING `+batchImageJobColumns,
 		params.PricingSnapshotVersion,
 		params.Currency, params.HoldID,
 		params.IdempotencyKey, params.RequestHash, params.ManifestHash, params.RetryCount, params.SessionID, params.OutputExpiresAt,
+		params.RequestData, params.RequestContentType,
 	))
 }
 
@@ -815,7 +819,7 @@ type rowScanner interface {
 	Scan(dest ...any) error
 }
 
-const batchImageJobColumns = `
+const batchImageJobBaseColumns = `
 id, batch_id, user_id, api_key_id, account_id, provider, model, task_name, parent_batch_id, status,
 provider_job_name, provider_input_ref, provider_output_ref, gcs_input_uri, gcs_output_uri,
 item_count, success_count, fail_count, cancelled_count,
@@ -829,7 +833,14 @@ retry_count, version, session_id, output_expires_at, input_deleted_at, output_de
 last_error_code, last_error_message,
 created_at, updated_at, submitted_at, started_at, finished_at, settled_at`
 
+const batchImageJobColumns = batchImageJobBaseColumns + `,
+request_data, request_content_type`
+
 const batchImageJobSelectSQL = `SELECT ` + batchImageJobColumns + ` FROM batch_image_jobs`
+
+const batchImageJobListSelectSQL = `SELECT ` + batchImageJobBaseColumns + `,
+NULL::bytea AS request_data, NULL::text AS request_content_type
+FROM batch_image_jobs`
 
 func scanBatchImageJob(row rowScanner) (*service.BatchImageJob, error) {
 	var job service.BatchImageJob
@@ -842,6 +853,8 @@ func scanBatchImageJob(row rowScanner) (*service.BatchImageJob, error) {
 	var outputExpiresAt, inputDeletedAt, outputDeletedAt, downloadedAt, userDeletedAt sql.NullTime
 	var lastErrorCode, lastErrorMessage sql.NullString
 	var submittedAt, startedAt, finishedAt, settledAt sql.NullTime
+	var requestData []byte
+	var requestContentType sql.NullString
 
 	err := row.Scan(
 		&job.ID, &job.BatchID, &job.UserID, &apiKeyID, &accountID, &job.Provider, &job.Model, &job.TaskName, &parentBatchID, &job.Status,
@@ -856,6 +869,7 @@ func scanBatchImageJob(row rowScanner) (*service.BatchImageJob, error) {
 		&job.RetryCount, &job.Version, &sessionID, &outputExpiresAt, &inputDeletedAt, &outputDeletedAt, &downloadedAt, &userDeletedAt,
 		&lastErrorCode, &lastErrorMessage,
 		&job.CreatedAt, &job.UpdatedAt, &submittedAt, &startedAt, &finishedAt, &settledAt,
+		&requestData, &requestContentType,
 	)
 	if err != nil {
 		return nil, err
@@ -887,6 +901,8 @@ func scanBatchImageJob(row rowScanner) (*service.BatchImageJob, error) {
 	job.StartedAt = batchImageNullTimePtr(startedAt)
 	job.FinishedAt = batchImageNullTimePtr(finishedAt)
 	job.SettledAt = batchImageNullTimePtr(settledAt)
+	job.RequestData = bytes.Clone(requestData)
+	job.RequestContentType = batchImageNullStringPtr(requestContentType)
 	return &job, nil
 }
 

@@ -233,6 +233,18 @@
           <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
         </template>
 
+        <template #cell-actions="{ row }">
+          <button
+            v-if="allowDetails"
+            type="button"
+            data-testid="usage-view-detail"
+            class="whitespace-nowrap text-sm font-medium text-primary-600 transition-colors hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+            @click="$emit('viewDetail', row)"
+          >
+            {{ t('usage.viewDetails') }}
+          </button>
+        </template>
+
         <template #empty><EmptyState :message="t('usage.noRecords')" /></template>
       </DataTable>
     </div>
@@ -523,6 +535,7 @@ interface Props {
   defaultSortOrder?: 'asc' | 'desc'
   showAccountBilling?: boolean
   showUpstreamEndpoint?: boolean
+  allowDetails?: boolean
   /** 嵌入统一卡片内使用：去掉自身卡片外观 */
   flat?: boolean
 }
@@ -534,10 +547,12 @@ const props = withDefaults(defineProps<Props>(), {
   defaultSortOrder: 'asc',
   showAccountBilling: true,
   showUpstreamEndpoint: true,
+  allowDetails: false,
   flat: false
 })
 const emit = defineEmits<{
   userClick: [userID: number, email?: string]
+  viewDetail: [row: AdminUsageLog]
   sort: [key: string, order: 'asc' | 'desc']
   ipGeoBatchFailed: []
 }>()

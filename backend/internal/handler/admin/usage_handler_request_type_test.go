@@ -18,6 +18,8 @@ type adminUsageRepoCapture struct {
 	listParams   pagination.PaginationParams
 	listFilters  usagestats.UsageLogFilters
 	statsFilters usagestats.UsageLogFilters
+	detailID     int64
+	detail       *service.UsageLog
 }
 
 func (s *adminUsageRepoCapture) ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters usagestats.UsageLogFilters) ([]service.UsageLog, *pagination.PaginationResult, error) {
@@ -36,14 +38,61 @@ func (s *adminUsageRepoCapture) GetStatsWithFilters(ctx context.Context, filters
 	return &usagestats.UsageStats{}, nil
 }
 
+func (s *adminUsageRepoCapture) GetByID(_ context.Context, id int64) (*service.UsageLog, error) {
+	s.detailID = id
+	return s.detail, nil
+}
+
 func newAdminUsageRequestTypeTestRouter(repo *adminUsageRepoCapture) *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	usageSvc := service.NewUsageService(repo, nil, nil, nil)
+	usageSvc := service.NewUsageService(repo, nil, nil, nil, nil)
 	handler := NewUsageHandler(usageSvc, nil, nil, nil)
 	router := gin.New()
 	router.GET("/admin/usage", handler.List)
 	router.GET("/admin/usage/stats", handler.Stats)
+	router.GET("/admin/usage/:id", handler.GetByID)
 	return router
+}
+
+func TestAdminUsageGetByIDReturnsOriginalRequestData(t *testing.T) {
+	contentType := "application/json"
+	repo := &adminUsageRepoCapture{
+		detail: &service.UsageLog{
+			ID:                 42,
+			UserID:             7,
+			APIKeyID:           9,
+			AccountID:          11,
+			RequestID:          "req-detail-42",
+			Model:              "gpt-5",
+			RequestData:        []byte(`{"authorization":"Bearer raw-secret","api_key":"sk-visible"}`),
+			RequestContentType: &contentType,
+		},
+	}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/42", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "no-store", rec.Header().Get("Cache-Control"))
+	require.Equal(t, int64(42), repo.detailID)
+	require.Contains(t, rec.Body.String(), `Bearer raw-secret`)
+	require.Contains(t, rec.Body.String(), `sk-visible`)
+	require.Contains(t, rec.Body.String(), `"request_data_encoding":"utf-8"`)
+	require.Contains(t, rec.Body.String(), `"request_content_type":"application/json"`)
+}
+
+func TestAdminUsageGetByIDRejectsInvalidID(t *testing.T) {
+	repo := &adminUsageRepoCapture{}
+	router := newAdminUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/usage/not-a-number", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Zero(t, repo.detailID)
 }
 
 func TestAdminUsageListRequestTypePriority(t *testing.T) {

@@ -274,6 +274,10 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ImageSizeSource:     optionalTrimmedStringPtr(result.ImageSizeSource),
 		ImageSizeBreakdown:  result.ImageSizeBreakdown,
 	}
+	if requestData, ok := usageRequestDataFromContext(ctx); ok {
+		usageLog.RequestData = requestData.data
+		usageLog.RequestContentType = optionalTrimmedStringPtr(requestData.contentType)
+	}
 	isVideoUsage := isGrokVideoUsageResult(result, billingModels)
 	if isVideoUsage {
 		usageLog.VideoCount = result.VideoCount

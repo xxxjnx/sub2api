@@ -155,6 +155,10 @@ type UsageLog struct {
 	CacheReadCost             float64
 	TotalCost                 float64
 	ActualCost                float64
+	RefundAmount              float64
+	RefundReason              *string
+	RefundedAt                *time.Time
+	RefundedBy                *int64
 	RateMultiplier            float64
 	LongContextBillingApplied bool
 	// AccountRateMultiplier 账号计费倍率快照（nil 表示历史数据，按 1.0 处理）
@@ -174,6 +178,11 @@ type UsageLog struct {
 	// (e.g. the session_id / X-Session-Id headers). Nil when the client sent no
 	// valid session header. It is never derived from prompt_cache_key or content.
 	SessionID *string
+
+	// RequestData is the original client request body. It is stored byte-for-byte
+	// and is only loaded by the single-record detail query.
+	RequestData        []byte
+	RequestContentType *string
 
 	// Cache TTL Override 标记（管理员强制替换了缓存 TTL 计费）
 	CacheTTLOverridden bool
