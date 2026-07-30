@@ -132,6 +132,40 @@ describe('UsageDetailModal', () => {
     expect(wrapper.text()).toContain('sk-visible')
   })
 
+  it('shows the latest user message first and keeps non-user data in raw request details', async () => {
+    const requestWithConversation = JSON.stringify({
+      model: 'gpt-5.6-luna',
+      instructions: 'large system instructions',
+      input: [
+        { role: 'developer', content: [{ type: 'input_text', text: 'developer message' }] },
+        { role: 'user', content: [{ type: 'input_text', text: 'hi' }] },
+        { role: 'assistant', content: [{ type: 'output_text', text: 'hello' }] },
+        {
+          role: 'user',
+          content: [{ type: 'input_text', text: '你觉得1+1在什么时候等于3' }],
+        },
+      ],
+      tools: [{ description: 'large tool definition' }],
+    })
+    apiMocks.getAdminById.mockResolvedValue({
+      ...usageDetail,
+      request_data: requestWithConversation,
+    })
+
+    const wrapper = mount(UsageDetailModal, {
+      props: { show: true, usageId: 42 },
+      global: { stubs: { BaseDialog: BaseDialogStub } },
+    })
+    await flushPromises()
+
+    expect(wrapper.get('[data-testid="latest-user-message"]').text())
+      .toBe('你觉得1+1在什么时候等于3')
+    expect(wrapper.get('[data-testid="usage-user-messages"]').text()).toContain('hi')
+    expect(wrapper.get('[data-testid="usage-user-messages"]').text()).not.toContain('developer message')
+    expect(wrapper.get('[data-testid="usage-request-data"]').text()).toBe(requestWithConversation)
+    expect(wrapper.get('details').attributes('open')).toBeUndefined()
+  })
+
   it('shows administrator-only upstream and account context', async () => {
     apiMocks.getAdminById.mockResolvedValue({
       ...usageDetail,

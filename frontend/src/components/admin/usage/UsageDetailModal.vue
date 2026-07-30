@@ -32,6 +32,39 @@
           {{ formatDateTime(detail.refunded_at) }} · {{ detail.refund_reason }}
         </div>
       </section>
+      <section v-if="userMessages.length" data-testid="usage-user-messages">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
+            {{ t('usage.detail.userMessages') }}
+          </h4>
+          <span class="rounded-full bg-primary-50 px-2.5 py-1 text-xs font-medium text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">
+            {{ t('usage.detail.userMessageCount', { count: userMessages.length }) }}
+          </span>
+        </div>
+        <div class="space-y-3">
+          <article
+            v-for="(message, index) in newestUserMessages"
+            :key="message.position"
+            class="rounded-xl border p-4"
+            :class="index === 0
+              ? 'border-primary-300 bg-primary-50/70 dark:border-primary-800 dark:bg-primary-950/30'
+              : 'border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800/40'"
+          >
+            <div class="mb-2 flex items-center gap-2 text-xs font-semibold">
+              <span :class="index === 0 ? 'text-primary-700 dark:text-primary-300' : 'text-gray-500 dark:text-dark-400'">
+                {{ index === 0 ? t('usage.detail.latestUserMessage') : t('usage.detail.previousUserMessage') }}
+              </span>
+              <span class="text-gray-400 dark:text-dark-500">#{{ message.position }}</span>
+            </div>
+            <p
+              class="whitespace-pre-wrap break-words text-sm leading-6 text-gray-900 dark:text-dark-100"
+              :data-testid="index === 0 ? 'latest-user-message' : undefined"
+            >
+              {{ message.text }}
+            </p>
+          </article>
+        </div>
+      </section>
       <section>
         <h4 class="mb-3 text-sm font-semibold text-gray-900 dark:text-white">
           {{ t('usage.detail.requestContext') }}
@@ -49,33 +82,36 @@
         </dl>
       </section>
 
-      <section>
-        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ t('usage.detail.requestData') }}
-          </h4>
+      <details
+        class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800/40"
+        :open="userMessages.length === 0"
+      >
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-gray-900 dark:text-white">
+          <span>{{ t('usage.detail.requestData') }}</span>
           <span
             v-if="detail.request_data_encoding"
             class="rounded bg-gray-100 px-2 py-0.5 font-mono text-xs text-gray-600 dark:bg-dark-700 dark:text-dark-300"
           >
             {{ detail.request_data_encoding }}
           </span>
+        </summary>
+        <div class="border-t border-gray-200 p-4 dark:border-dark-700">
+          <p class="mb-3 text-xs text-gray-500 dark:text-dark-400">
+            {{ t('usage.detail.rawHint') }}
+          </p>
+          <pre
+            v-if="detail.request_data != null"
+            data-testid="usage-request-data"
+            class="max-h-[52vh] overflow-auto whitespace-pre-wrap break-all rounded-xl bg-gray-950 p-4 font-mono text-xs leading-5 text-gray-100"
+          >{{ detail.request_data }}</pre>
+          <div
+            v-else
+            class="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-dark-400"
+          >
+            {{ t('usage.detail.notRecorded') }}
+          </div>
         </div>
-        <p class="mb-3 text-xs text-gray-500 dark:text-dark-400">
-          {{ t('usage.detail.rawHint') }}
-        </p>
-        <pre
-          v-if="detail.request_data != null"
-          data-testid="usage-request-data"
-          class="max-h-[52vh] overflow-auto whitespace-pre-wrap break-all rounded-xl border border-gray-200 bg-gray-950 p-4 font-mono text-xs leading-5 text-gray-100 dark:border-dark-700"
-        >{{ detail.request_data }}</pre>
-        <div
-          v-else
-          class="rounded-xl border border-dashed border-gray-300 px-4 py-8 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-dark-400"
-        >
-          {{ t('usage.detail.notRecorded') }}
-        </div>
-      </section>
+      </details>
     </div>
 
     <template #footer>
@@ -135,6 +171,7 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import { adminUsageAPI } from '@/api/admin/usage'
 import { formatDateTime } from '@/utils/format'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
+import { extractUsageUserMessages } from '@/utils/usageRequestData'
 import type { AdminUsageLog } from '@/types'
 
 const props = defineProps<{
@@ -159,6 +196,11 @@ let requestSequence = 0
 const canRefund = computed(() =>
   Boolean(detail.value && detail.value.actual_cost > 0 && !detail.value.refunded_at),
 )
+const userMessages = computed(() => {
+  if (detail.value?.request_data_encoding === 'base64') return []
+  return extractUsageUserMessages(detail.value?.request_data)
+})
+const newestUserMessages = computed(() => [...userMessages.value].reverse())
 
 function close() {
   emit('update:show', false)
