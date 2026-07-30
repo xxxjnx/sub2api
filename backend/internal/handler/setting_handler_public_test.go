@@ -82,6 +82,28 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 	require.True(t, resp.Data.ForceEmailOnThirdPartySignup)
 }
 
+func TestSettingHandler_GetPublicSettings_DoesNotExposeBalanceLowNotifyRechargeURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	const secretRechargeURL = "http://203.0.113.10:8080"
+	repo := &settingHandlerPublicRepoStub{
+		values: map[string]string{
+			service.SettingKeyBalanceLowNotifyRechargeURL: secretRechargeURL,
+		},
+	}
+	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/settings/public", nil)
+
+	h.GetPublicSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.NotContains(t, recorder.Body.String(), "balance_low_notify_recharge_url")
+	require.NotContains(t, recorder.Body.String(), secretRechargeURL)
+}
+
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{

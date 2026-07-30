@@ -11,7 +11,8 @@ import (
 )
 
 type settingPublicRepoStub struct {
-	values map[string]string
+	values        map[string]string
+	requestedKeys []string
 }
 
 func (s *settingPublicRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
@@ -27,6 +28,7 @@ func (s *settingPublicRepoStub) Set(ctx context.Context, key, value string) erro
 }
 
 func (s *settingPublicRepoStub) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
+	s.requestedKeys = append([]string(nil), keys...)
 	out := make(map[string]string, len(keys))
 	for _, key := range keys {
 		if value, ok := s.values[key]; ok {
@@ -46,6 +48,19 @@ func (s *settingPublicRepoStub) GetAll(ctx context.Context) (map[string]string, 
 
 func (s *settingPublicRepoStub) Delete(ctx context.Context, key string) error {
 	panic("unexpected Delete call")
+}
+
+func TestSettingService_GetPublicSettings_DoesNotReadBalanceLowNotifyRechargeURL(t *testing.T) {
+	repo := &settingPublicRepoStub{
+		values: map[string]string{
+			SettingKeyBalanceLowNotifyRechargeURL: "http://203.0.113.10:8080",
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+
+	_, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.NotContains(t, repo.requestedKeys, SettingKeyBalanceLowNotifyRechargeURL)
 }
 
 func TestSettingService_GetPublicSettings_ExposesRegistrationEmailSuffixWhitelist(t *testing.T) {
