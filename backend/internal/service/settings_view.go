@@ -323,10 +323,9 @@ type PublicSettings struct {
 	GoogleOAuthEnabled       bool
 	Version                  string
 
-	BalanceLowNotifyEnabled     bool
-	AccountQuotaNotifyEnabled   bool
-	BalanceLowNotifyThreshold   float64
-	BalanceLowNotifyRechargeURL string
+	BalanceLowNotifyEnabled   bool
+	AccountQuotaNotifyEnabled bool
+	BalanceLowNotifyThreshold float64
 
 	// Channel Monitor feature
 	ChannelMonitorEnabled                bool `json:"channel_monitor_enabled"`
