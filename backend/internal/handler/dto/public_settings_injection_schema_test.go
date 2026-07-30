@@ -50,6 +50,14 @@ func TestPublicSettingsInjectionPayload_SchemaDoesNotDrift(t *testing.T) {
 			"add the field to PublicSettingsInjectionPayload (and GetPublicSettingsForInjection), or "+
 			"document the exclusion in dtoOnlyFields with a reason.", strings.Join(missing, ", "))
 	}
+
+	const privateRechargeURLField = "balance_low_notify_recharge_url"
+	if _, exposed := dtoKeys[privateRechargeURLField]; exposed {
+		t.Fatalf("%s must remain admin-only and must not be exposed by dto.PublicSettings", privateRechargeURLField)
+	}
+	if _, exposed := injection[privateRechargeURLField]; exposed {
+		t.Fatalf("%s must remain admin-only and must not be injected into public HTML", privateRechargeURLField)
+	}
 }
 
 func jsonTags(t reflect.Type) map[string]struct{} {
