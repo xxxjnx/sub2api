@@ -36,11 +36,19 @@
           <!-- Top-up Tab -->
           <template v-if="activeTab === 'recharge'">
             <!-- Recharge Account Card -->
-            <div class="card p-5">
-              <p class="text-xs font-medium text-gray-400 dark:text-gray-500">{{ t('payment.rechargeAccount') }}</p>
-              <p class="mt-1 text-base font-semibold text-gray-900 dark:text-white">{{ user?.username || '' }}</p>
-              <p class="mt-0.5 text-sm font-medium text-green-600 dark:text-green-400">{{ t('payment.currentBalance') }}: {{ user?.balance?.toFixed(2) || '0.00' }}</p>
-            </div>
+            <section class="recharge-account-banner" data-testid="recharge-account-banner">
+              <div>
+                <span class="recharge-account-banner__kicker">{{ t('payment.rechargeAccount') }}</span>
+                <h2 class="recharge-account-banner__title">{{ t('payment.rechargeTitle') }}</h2>
+                <p class="recharge-account-banner__description">{{ t('payment.rechargeDescription') }}</p>
+              </div>
+              <div class="recharge-account-banner__balance">
+                <span>{{ t('payment.currentBalance') }}</span>
+                <strong class="recharge-account-banner__balance-value">
+                  ${{ user?.balance?.toFixed(2) || '0.00' }}
+                </strong>
+              </div>
+            </section>
             <div v-if="enabledMethods.length === 0" class="card py-16 text-center">
               <p class="text-gray-500 dark:text-gray-400">{{ t('payment.notAvailable') }}</p>
             </div>
@@ -1158,3 +1166,125 @@ onMounted(async () => {
   subscriptionStore.fetchActiveSubscriptions().catch(() => {})
 })
 </script>
+
+<style scoped>
+.recharge-account-banner {
+  display: flex;
+  min-height: 129px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  border: 1px solid #edcbb9;
+  border-radius: 17px;
+  background:
+    linear-gradient(105deg, rgba(255, 244, 235, 0.97), rgba(255, 250, 246, 0.96)),
+    repeating-linear-gradient(
+      120deg,
+      transparent 0,
+      transparent 9px,
+      rgba(174, 78, 43, 0.04) 9px,
+      rgba(174, 78, 43, 0.04) 10px
+    );
+  padding: 22px 26px;
+}
+
+.recharge-account-banner__kicker {
+  color: #a6482a;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 18px;
+}
+
+.recharge-account-banner__title {
+  margin-top: 6px;
+  color: #1b2027;
+  font-size: 19px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.recharge-account-banner__description {
+  margin-top: 5px;
+  color: #69737e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.recharge-account-banner__balance {
+  min-width: 156px;
+  flex: none;
+  border-left: 1px solid #efd5c9;
+  padding-left: 24px;
+}
+
+.recharge-account-banner__balance > span {
+  display: block;
+  color: #69737e;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.recharge-account-banner__balance-value {
+  display: block;
+  margin-top: 4px;
+  color: #a6482a;
+  font-size: 24px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+:global(.dark) .recharge-account-banner {
+  border-color: rgba(201, 125, 91, 0.42);
+  background:
+    linear-gradient(105deg, rgba(65, 35, 25, 0.88), rgba(38, 30, 28, 0.94)),
+    repeating-linear-gradient(
+      120deg,
+      transparent 0,
+      transparent 9px,
+      rgba(251, 146, 110, 0.08) 9px,
+      rgba(251, 146, 110, 0.08) 10px
+    );
+}
+
+:global(.dark) .recharge-account-banner__kicker,
+:global(.dark) .recharge-account-banner__balance-value {
+  color: #fb9a78;
+}
+
+:global(.dark) .recharge-account-banner__title {
+  color: #f8fafc;
+}
+
+:global(.dark) .recharge-account-banner__description,
+:global(.dark) .recharge-account-banner__balance > span {
+  color: #a8b0ba;
+}
+
+:global(.dark) .recharge-account-banner__balance {
+  border-left-color: rgba(201, 125, 91, 0.35);
+}
+
+@media (max-width: 640px) {
+  .recharge-account-banner {
+    min-height: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 13px;
+    padding: 18px;
+  }
+
+  .recharge-account-banner__title {
+    font-size: 17px;
+  }
+
+  .recharge-account-banner__balance {
+    min-width: 0;
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .recharge-account-banner__balance-value {
+    font-size: 18px;
+  }
+}
+</style>

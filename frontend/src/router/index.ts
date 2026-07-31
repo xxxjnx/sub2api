@@ -216,6 +216,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/docs',
+    name: 'Docs',
+    component: () => import('@/views/user/DocsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: '使用文档'
+    }
+  },
+  {
     path: '/batch-image',
     name: 'BatchImageGuide',
     alias: '/docs/batch-image',

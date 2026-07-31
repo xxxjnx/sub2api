@@ -379,6 +379,8 @@ export default {
     currentBalance: 'Current Balance',
     groupFallback: 'Group #{id}',
     rechargeAccount: 'Recharge Account',
+    rechargeTitle: 'Top up your account safely and conveniently',
+    rechargeDescription: 'Your balance is credited automatically after payment and can be used across supported services.',
     activeSubscription: 'Active Subscription',
     noActiveSubscription: 'No active subscription',
     tabTopUp: 'Top Up',
