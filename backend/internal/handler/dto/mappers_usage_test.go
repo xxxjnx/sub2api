@@ -1,6 +1,7 @@
 package dto
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"testing"
 
@@ -243,6 +244,52 @@ func TestUsageLogFromService_PreservesHistoricalMissingImageSize(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, string(body), `"image_size":null`)
 	require.NotContains(t, string(body), `"image_size":"2K"`)
+}
+
+func TestUsageLogFromServiceAdmin_ReturnsRawRequestDataWithoutRedactionOrFormatting(t *testing.T) {
+	t.Parallel()
+
+	contentType := "application/json"
+	raw := []byte("{\n  \"authorization\": \"Bearer raw-secret\",\n  \"api_key\": \"sk-visible\",\n  \"input\": \"keep spacing\"\n}")
+	log := &service.UsageLog{
+		RequestID:          "req_raw_request",
+		Model:              "gpt-5",
+		RequestData:        raw,
+		RequestContentType: &contentType,
+	}
+
+	userDTO := UsageLogFromService(log)
+	adminDTO := UsageLogFromServiceAdmin(log)
+	require.NotNil(t, adminDTO.RequestData)
+	require.Equal(t, string(raw), *adminDTO.RequestData)
+	require.NotNil(t, adminDTO.RequestDataEncoding)
+	require.Equal(t, "utf-8", *adminDTO.RequestDataEncoding)
+	require.NotNil(t, adminDTO.RequestContentType)
+	require.Equal(t, contentType, *adminDTO.RequestContentType)
+
+	userBody, err := json.Marshal(userDTO)
+	require.NoError(t, err)
+	require.NotContains(t, string(userBody), "request_data")
+	require.NotContains(t, string(userBody), "request_content_type")
+	require.NotContains(t, string(userBody), "raw-secret")
+	require.NotContains(t, string(userBody), "sk-visible")
+
+	adminBody, err := json.Marshal(adminDTO)
+	require.NoError(t, err)
+	require.Contains(t, string(adminBody), "raw-secret")
+	require.Contains(t, string(adminBody), "sk-visible")
+}
+
+func TestUsageLogFromServiceAdmin_Base64EncodesNonUTF8RequestData(t *testing.T) {
+	t.Parallel()
+
+	raw := []byte{0xff, 0x00, 0x81}
+	dto := UsageLogFromServiceAdmin(&service.UsageLog{RequestData: raw})
+
+	require.NotNil(t, dto.RequestData)
+	require.Equal(t, base64.StdEncoding.EncodeToString(raw), *dto.RequestData)
+	require.NotNil(t, dto.RequestDataEncoding)
+	require.Equal(t, "base64", *dto.RequestDataEncoding)
 }
 
 func f64Ptr(value float64) *float64 {

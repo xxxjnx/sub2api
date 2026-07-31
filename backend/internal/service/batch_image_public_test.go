@@ -29,8 +29,10 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		svc, repo, queue, gemini, _ := newTestBatchImagePublicService(true)
 		req := validBatchImageSubmitRequest()
 		req.SessionID = batchImageStringPtr("batch-session-123")
+		rawRequest := []byte("{\n  \"authorization\": \"Bearer raw-batch-secret\"\n}")
+		requestCtx := WithUsageRequestData(ctx, rawRequest, "application/json")
 
-		got, err := svc.Submit(ctx, testBatchImageOwner(), req, "")
+		got, err := svc.Submit(requestCtx, testBatchImageOwner(), req, "")
 		require.NoError(t, err)
 		require.Equal(t, "image.batch", got.Object)
 		require.Equal(t, "queued", got.Status)
@@ -64,6 +66,8 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.InDelta(t, 0.125, job.BillableUnitPrice, 1e-12)
 		require.InDelta(t, 0.15, job.HoldUnitPrice, 1e-12)
 		require.Equal(t, "batch-session-123", batchImageDerefString(job.SessionID))
+		require.Equal(t, rawRequest, job.RequestData)
+		require.Equal(t, "application/json", batchImageDerefString(job.RequestContentType))
 	})
 
 	t.Run("combines user group image rate account rate discount and hold margin", func(t *testing.T) {

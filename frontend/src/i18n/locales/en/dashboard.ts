@@ -368,6 +368,37 @@ export default {
     exportExcelFailed: 'Failed to export usage data',
     imageUnit: ' images',
     userAgent: 'User-Agent',
+    viewDetails: 'View details',
+    detail: {
+      title: 'Usage Record Details',
+      requestContext: 'Context',
+      requestData: 'Request Data',
+      userMessages: 'User Messages',
+      userMessageCount: '{count} total',
+      latestUserMessage: 'Latest user message',
+      previousUserMessage: 'Previous user message',
+      rawHint: 'This is the original client request, shown without redaction or formatting.',
+      requestId: 'Request ID',
+      user: 'User',
+      apiKey: 'API Key',
+      account: 'Account',
+      group: 'Group',
+      subscription: 'Subscription ID',
+      ipAddress: 'IP Address',
+      sessionId: 'Session ID',
+      contentType: 'Content-Type',
+      notRecorded: 'No original request data was saved for this record.',
+      loadFailed: 'Failed to load usage record details. Please try again later.',
+      refund: 'Refund',
+      confirmRefund: 'Confirm refund',
+      refunding: 'Refunding...',
+      refunded: 'Refunded',
+      refundReason: 'Refund reason',
+      refundReasonPlaceholder: 'Enter a reason (required, up to 500 characters)',
+      refundWarning: 'The full charge of ${amount} will be returned. This action cannot be repeated.',
+      refundSuccess: 'Refund completed',
+      refundFailed: 'Refund failed. Check the record status and try again.',
+    },
     ipGeo: {
       fetch: 'Fetch region',
       fetching: 'Fetching...',
@@ -517,6 +548,54 @@ export default {
       intervals: 'Tiered Pricing',
       unitPerMillion: '/ 1M tokens',
       unitPerRequest: '/ request'
+    }
+  },
+
+  // Model Plaza (public group/model pricing showcase)
+  modelPlaza: {
+    title: 'Model Plaza',
+    description: 'Browse available models and pricing by group',
+    loading: 'Loading...',
+    empty: 'No groups to display',
+    loadFailed: 'Failed to load model plaza',
+    noSearchResult: 'No matching models',
+    anonymousHint: 'Sign in to see your exclusive groups and personal rates',
+    filters: {
+      platformLabel: 'Platform',
+      groupLabel: 'Group',
+      rateLabel: 'Rate',
+      modelLabel: 'Model',
+      searchPlaceholder: 'Search models',
+      all: 'All'
+    },
+    badges: {
+      exclusive: 'Exclusive',
+      subscription: 'Subscription'
+    },
+    detail: {
+      noModels: 'No models configured for this group',
+      noPricing: 'Pricing not configured',
+      peakNote: 'Peak hours {window}: billing rate ×{multiplier}'
+    },
+    table: {
+      model: 'Model',
+      input: 'Input',
+      output: 'Output',
+      cache: 'Cache',
+      cacheWrite: 'Write',
+      cacheRead: 'Read',
+      paidPrice: 'Your Price (Discounted)',
+      officialPrice: 'Official Price',
+      rate: 'Rate',
+      unitPerMillion: '$ / 1M tokens',
+      perUnitRequest: '/ request',
+      perUnitImage: '/ image',
+      perRequest: 'Per request',
+      perImage: 'Per image'
+    },
+    nav: {
+      login: 'Sign In',
+      backToDashboard: 'Back to Console'
     }
   },
 

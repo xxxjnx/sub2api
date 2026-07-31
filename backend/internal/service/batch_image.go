@@ -134,10 +134,12 @@ type BatchImageJob struct {
 	Currency                string
 	HoldID                  *string
 
-	IdempotencyKey *string
-	RequestHash    *string
-	ManifestHash   *string
-	SessionID      *string
+	IdempotencyKey     *string
+	RequestHash        *string
+	ManifestHash       *string
+	SessionID          *string
+	RequestData        []byte
+	RequestContentType *string
 
 	RetryCount int
 	Version    int
@@ -194,10 +196,12 @@ type CreateBatchImageJobParams struct {
 	Currency                string
 	HoldID                  *string
 
-	IdempotencyKey *string
-	RequestHash    *string
-	ManifestHash   *string
-	SessionID      *string
+	IdempotencyKey     *string
+	RequestHash        *string
+	ManifestHash       *string
+	SessionID          *string
+	RequestData        []byte
+	RequestContentType *string
 
 	RetryCount int
 

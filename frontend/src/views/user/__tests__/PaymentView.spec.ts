@@ -236,6 +236,41 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   return wrapper
 }
 
+describe('PaymentView recharge account banner', () => {
+  beforeEach(() => {
+    vi.useRealTimers()
+    routeState.path = '/purchase'
+    routeState.query = {}
+    routerReplace.mockReset().mockResolvedValue(undefined)
+    routerPush.mockReset().mockResolvedValue(undefined)
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture())
+    fetchActiveSubscriptions.mockReset().mockResolvedValue(undefined)
+    window.localStorage.clear()
+  })
+
+  it('shows the reference-style recharge summary and formatted balance', async () => {
+    const wrapper = shallowMount(PaymentView, {
+      global: {
+        stubs: {
+          AppLayout: {
+            template: '<div><slot /></div>',
+          },
+          Teleport: true,
+          Transition: false,
+        },
+      },
+    })
+    await flushPromises()
+
+    const banner = wrapper.get('[data-testid="recharge-account-banner"]')
+    expect(banner.text()).toContain('payment.rechargeAccount')
+    expect(banner.text()).toContain('payment.rechargeTitle')
+    expect(banner.text()).toContain('payment.rechargeDescription')
+    expect(banner.get('.recharge-account-banner__balance-value').text()).toBe('$0.00')
+    expect(banner.text()).not.toContain('demo-user')
+  })
+})
+
 describe('PaymentView subscription confirmation amounts', () => {
   it('shows converted CNY pay amount using the subscription rate, not the balance multiplier', async () => {
     const wrapper = await mountSubscriptionConfirm({

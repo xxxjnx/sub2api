@@ -202,6 +202,60 @@ func (h *UsageHandler) List(c *gin.Context) {
 	response.Paginated(c, out, result.Total, page, pageSize)
 }
 
+// GetByID handles fetching one complete usage record for the detail view.
+// GET /api/v1/admin/usage/:id
+func (h *UsageHandler) GetByID(c *gin.Context) {
+	usageID, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || usageID <= 0 {
+		response.BadRequest(c, "Invalid usage ID")
+		return
+	}
+
+	record, err := h.usageService.GetByID(c.Request.Context(), usageID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	response.Success(c, dto.UsageLogFromServiceAdmin(record))
+}
+
+type RefundUsageRequest struct {
+	Reason string `json:"reason"`
+}
+
+// Refund reverses the charge for one usage record. This endpoint is registered
+// only under the administrator route group.
+// POST /api/v1/admin/usage/:id/refund
+func (h *UsageHandler) Refund(c *gin.Context) {
+	usageID, err := strconv.ParseInt(strings.TrimSpace(c.Param("id")), 10, 64)
+	if err != nil || usageID <= 0 {
+		response.BadRequest(c, "Invalid usage ID")
+		return
+	}
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		response.Unauthorized(c, "Administrator authentication required")
+		return
+	}
+	var req RefundUsageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid refund request")
+		return
+	}
+	record, err := h.usageService.Refund(c.Request.Context(), service.RefundUsageInput{
+		UsageID: usageID,
+		AdminID: subject.UserID,
+		Reason:  req.Reason,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	response.Success(c, dto.UsageLogFromServiceAdmin(record))
+}
+
 // Stats handles getting usage statistics with filters
 // GET /api/v1/admin/usage/stats
 func (h *UsageHandler) Stats(c *gin.Context) {

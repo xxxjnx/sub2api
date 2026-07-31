@@ -1,11 +1,32 @@
 package handler
 
 import (
+	"encoding/json"
+	"net/http"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
+
+func captureUsageRequestData(c *gin.Context, data []byte) {
+	if c == nil || c.Request == nil || len(data) == 0 {
+		return
+	}
+	captureUsageRequestDataFromRequest(c.Request, data)
+}
+
+func captureUsageRequestDataFromRequest(request *http.Request, data []byte) {
+	if request == nil || len(data) == 0 {
+		return
+	}
+	contentType := strings.TrimSpace(request.Header.Get("Content-Type"))
+	if contentType == "" && json.Valid(data) {
+		contentType = "application/json"
+	}
+	ctx := service.WithUsageRequestData(request.Context(), data, contentType)
+	*request = *request.WithContext(ctx)
+}
 
 // ──────────────────────────────────────────────────────────
 // Canonical inbound / upstream endpoint paths.

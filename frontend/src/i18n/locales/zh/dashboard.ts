@@ -373,6 +373,37 @@ export default {
     exportExcelFailed: '使用数据导出失败',
     imageUnit: '张',
     userAgent: 'User-Agent',
+    viewDetails: '查看详情',
+    detail: {
+      title: '使用记录详情',
+      requestContext: '上下文信息',
+      requestData: '请求数据',
+      userMessages: '用户输入',
+      userMessageCount: '共 {count} 条',
+      latestUserMessage: '最新用户消息',
+      previousUserMessage: '历史用户消息',
+      rawHint: '以下内容按客户端原始请求原样显示，未进行脱敏或格式化。',
+      requestId: '请求 ID',
+      user: '用户',
+      apiKey: 'API 密钥',
+      account: '账号',
+      group: '分组',
+      subscription: '订阅 ID',
+      ipAddress: 'IP 地址',
+      sessionId: '会话 ID',
+      contentType: 'Content-Type',
+      notRecorded: '这条记录未保存原始请求数据。',
+      loadFailed: '加载使用记录详情失败，请稍后重试',
+      refund: '退款',
+      confirmRefund: '确认退款',
+      refunding: '退款中...',
+      refunded: '已退款',
+      refundReason: '退款原因',
+      refundReasonPlaceholder: '请输入退款原因（必填，最多 500 字）',
+      refundWarning: '将全额退回本条请求消费的 ${amount}，该操作不可重复执行。',
+      refundSuccess: '退款成功',
+      refundFailed: '退款失败，请检查记录状态后重试',
+    },
     ipGeo: {
       fetch: '获取地区',
       fetching: '获取中...',
@@ -522,6 +553,54 @@ export default {
       intervals: '阶梯定价',
       unitPerMillion: '/ 1M token',
       unitPerRequest: '/ 次'
+    }
+  },
+
+  // Model Plaza (public group/model pricing showcase)
+  modelPlaza: {
+    title: '模型广场',
+    description: '按分组浏览可用模型与价格',
+    loading: '加载中...',
+    empty: '暂无可展示的分组',
+    loadFailed: '加载模型广场失败',
+    noSearchResult: '没有匹配的模型',
+    anonymousHint: '登录后可查看你的专属分组与专属倍率',
+    filters: {
+      platformLabel: '平台',
+      groupLabel: '分组',
+      rateLabel: '倍率',
+      modelLabel: '模型',
+      searchPlaceholder: '搜索模型名称',
+      all: '全部'
+    },
+    badges: {
+      exclusive: '专属分组',
+      subscription: '订阅'
+    },
+    detail: {
+      noModels: '该分组暂未配置模型',
+      noPricing: '未配置定价',
+      peakNote: '高峰时段 {window} 计费倍率 ×{multiplier}'
+    },
+    table: {
+      model: '模型',
+      input: '输入',
+      output: '输出',
+      cache: '缓存',
+      cacheWrite: '写入',
+      cacheRead: '读取',
+      paidPrice: '实付价格(折后)',
+      officialPrice: '官方价格',
+      rate: '折扣倍率',
+      unitPerMillion: '$ / 1M token',
+      perUnitRequest: '/ 次',
+      perUnitImage: '/ 张',
+      perRequest: '按次计费',
+      perImage: '按图片计费'
+    },
+    nav: {
+      login: '登录',
+      backToDashboard: '回到后台'
     }
   },
 

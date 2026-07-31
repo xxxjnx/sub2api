@@ -111,6 +111,19 @@ export async function list(
 }
 
 /**
+ * Get one complete usage record (admin only).
+ */
+export async function getById(id: number): Promise<AdminUsageLog> {
+  const { data } = await apiClient.get<AdminUsageLog>(`/admin/usage/${id}`)
+  return data
+}
+
+export async function refund(id: number, reason: string): Promise<AdminUsageLog> {
+  const { data } = await apiClient.post<AdminUsageLog>(`/admin/usage/${id}/refund`, { reason })
+  return data
+}
+
+/**
  * Get usage statistics with optional filters (admin only)
  * @param params - Query parameters for filtering
  * @returns Usage statistics
@@ -206,6 +219,8 @@ export async function cancelCleanupTask(taskId: number): Promise<{ id: number; s
 
 export const adminUsageAPI = {
   list,
+  getById,
+  refund,
   getStats,
   searchUsers,
   searchApiKeys,

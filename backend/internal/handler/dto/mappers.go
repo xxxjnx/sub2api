@@ -2,8 +2,10 @@
 package dto
 
 import (
+	"encoding/base64"
 	"strconv"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
@@ -681,6 +683,19 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 	}
 }
 
+func usageRequestDataForDTO(data []byte) (*string, *string) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+	encoding := "utf-8"
+	value := string(data)
+	if !utf8.Valid(data) {
+		encoding = "base64"
+		value = base64.StdEncoding.EncodeToString(data)
+	}
+	return &value, &encoding
+}
+
 // UsageLogFromService converts a service UsageLog to DTO for regular users.
 // It excludes admin-only account/upstream internals while keeping user billing and request metadata.
 func UsageLogFromService(l *service.UsageLog) *UsageLog {
@@ -699,8 +714,16 @@ func UsageLogFromServiceAdmin(l *service.UsageLog) *AdminUsageLog {
 	}
 	usageLog := usageLogFromServiceUser(l)
 	usageLog.UpstreamEndpoint = l.UpstreamEndpoint
+	requestData, requestDataEncoding := usageRequestDataForDTO(l.RequestData)
 	return &AdminUsageLog{
 		UsageLog:              usageLog,
+		RefundAmount:          l.RefundAmount,
+		RefundReason:          l.RefundReason,
+		RefundedAt:            l.RefundedAt,
+		RefundedBy:            l.RefundedBy,
+		RequestData:           requestData,
+		RequestDataEncoding:   requestDataEncoding,
+		RequestContentType:    l.RequestContentType,
 		UpstreamModel:         l.UpstreamModel,
 		ChannelID:             l.ChannelID,
 		ModelMappingChain:     l.ModelMappingChain,

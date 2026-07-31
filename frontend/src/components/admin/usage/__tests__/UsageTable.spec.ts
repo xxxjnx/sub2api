@@ -51,6 +51,7 @@ const messages: Record<string, string> = {
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
+  'usage.viewDetails': 'View details',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -72,12 +73,14 @@ const DataTableStub = {
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
+        <slot name="cell-actions" :row="row" />
       </div>
     </div>
   `,
 }
 
 const baseImageRow = {
+  id: 1,
   request_id: 'req-admin-image',
   model: 'gpt-image-2',
   actual_cost: 0.4,
@@ -104,6 +107,51 @@ const baseImageRow = {
   image_size_source: null,
   image_size_breakdown: null,
 }
+
+describe('admin UsageTable detail action', () => {
+  it('emits the selected usage row', async () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [baseImageRow],
+        loading: false,
+        columns: [{ key: 'actions', label: 'Actions' }],
+        allowDetails: true,
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    await wrapper.get('[data-testid="usage-view-detail"]').trigger('click')
+
+    expect(wrapper.emitted('viewDetail')).toEqual([[baseImageRow]])
+  })
+
+  it('does not render the detail action unless explicitly enabled by the admin view', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [baseImageRow],
+        loading: false,
+        columns: [{ key: 'actions', label: 'Actions' }],
+      },
+      global: {
+        stubs: {
+          DataTable: DataTableStub,
+          EmptyState: true,
+          Icon: true,
+          Teleport: true,
+        },
+      },
+    })
+
+    expect(wrapper.find('[data-testid="usage-view-detail"]').exists()).toBe(false)
+  })
+})
 
 describe('admin UsageTable tooltip', () => {
   beforeEach(() => {

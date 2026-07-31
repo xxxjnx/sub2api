@@ -35,7 +35,8 @@ func (s *GatewayService) ResolveUserGroupRateMultiplier(ctx context.Context, use
 }
 
 // RecordUsageInput 记录使用量的输入参数。
-// 异步 worker 只接收计费所需快照，不能持有 ParsedRequest/RequestBodyRef 这类大请求体引用。
+// 异步 worker 不持有可变的 ParsedRequest/RequestBodyRef；详情所需的原始请求
+// 通过 context 中的独立不可变字节快照传递。
 type RecordUsageInput struct {
 	Result             *ForwardResult
 	APIKey             *APIKey
@@ -1019,6 +1020,10 @@ func (s *GatewayService) buildRecordUsageLog(
 		GroupID:               apiKey.GroupID,
 		SubscriptionID:        optionalSubscriptionID(subscription),
 		CreatedAt:             time.Now(),
+	}
+	if requestData, ok := usageRequestDataFromContext(ctx); ok {
+		usageLog.RequestData = requestData.data
+		usageLog.RequestContentType = optionalTrimmedStringPtr(requestData.contentType)
 	}
 	if result.ImageCount > 0 && (cost == nil || cost.BillingMode != string(BillingModeToken)) {
 		usageLog.RateMultiplier = imageMultiplier

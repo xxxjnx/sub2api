@@ -133,22 +133,24 @@ func (c *gatewayCache) SaveLiveCall(ctx context.Context, record *service.LiveCal
 		return fmt.Errorf("invalid live call record")
 	}
 	values := map[string]any{
-		"call_id":          record.CallID,
-		"account_id":       record.AccountID,
-		"api_key_id":       record.APIKeyID,
-		"user_id":          record.UserID,
-		"group_id":         record.GroupID,
-		"subscription_id":  record.SubscriptionID,
-		"lease_id":         record.LeaseID,
-		"model":            record.Model,
-		"created_at":       record.CreatedAt.UnixMilli(),
-		"expires_at":       record.ExpiresAt.UnixMilli(),
-		"controller":       record.Controller,
-		"controller_owner": record.ControllerOwner,
-		"user_agent":       record.UserAgent,
-		"ip_address":       record.IPAddress,
-		"inbound_endpoint": record.InboundEndpoint,
-		"attestation":      record.AttestationCiphertext,
+		"call_id":              record.CallID,
+		"account_id":           record.AccountID,
+		"api_key_id":           record.APIKeyID,
+		"user_id":              record.UserID,
+		"group_id":             record.GroupID,
+		"subscription_id":      record.SubscriptionID,
+		"lease_id":             record.LeaseID,
+		"model":                record.Model,
+		"created_at":           record.CreatedAt.UnixMilli(),
+		"expires_at":           record.ExpiresAt.UnixMilli(),
+		"controller":           record.Controller,
+		"controller_owner":     record.ControllerOwner,
+		"user_agent":           record.UserAgent,
+		"ip_address":           record.IPAddress,
+		"inbound_endpoint":     record.InboundEndpoint,
+		"request_data":         record.RequestData,
+		"request_content_type": record.RequestContentType,
+		"attestation":          record.AttestationCiphertext,
 	}
 	key := liveCallKey(record.CallHash)
 	pipe := c.rdb.TxPipeline()
@@ -189,6 +191,8 @@ func (c *gatewayCache) GetLiveCall(ctx context.Context, callHash string) (*servi
 		UserAgent:             values["user_agent"],
 		IPAddress:             values["ip_address"],
 		InboundEndpoint:       values["inbound_endpoint"],
+		RequestData:           []byte(values["request_data"]),
+		RequestContentType:    values["request_content_type"],
 		AttestationCiphertext: values["attestation"],
 	}, nil
 }
