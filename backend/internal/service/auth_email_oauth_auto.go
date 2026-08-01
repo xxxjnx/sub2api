@@ -190,6 +190,9 @@ func (s *AuthService) createEmailOAuthUser(ctx context.Context, email, username,
 		Status:       StatusActive,
 		SignupSource: providerType,
 	}
+	if err := s.prepareRegistrationUser(ctx, user); err != nil {
+		return nil, err
+	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		if errors.Is(err, ErrEmailExists) {
 			existing, loadErr := s.userRepo.GetByEmail(ctx, email)
@@ -197,6 +200,9 @@ func (s *AuthService) createEmailOAuthUser(ctx context.Context, email, username,
 				return nil, ErrServiceUnavailable
 			}
 			return existing, nil
+		}
+		if errors.Is(err, ErrRegistrationIPBlocked) {
+			return nil, ErrRegistrationIPBlocked
 		}
 		return nil, ErrServiceUnavailable
 	}

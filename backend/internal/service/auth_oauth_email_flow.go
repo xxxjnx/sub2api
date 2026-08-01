@@ -159,10 +159,16 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 		Status:       StatusActive,
 		SignupSource: signupSource,
 	}
+	if err := s.prepareRegistrationUser(ctx, user); err != nil {
+		return nil, nil, err
+	}
 
 	if err := s.userRepo.CreateWithEmailAliasGuard(ctx, user); err != nil {
 		if errors.Is(err, ErrEmailExists) {
 			return nil, nil, ErrEmailExists
+		}
+		if errors.Is(err, ErrRegistrationIPBlocked) {
+			return nil, nil, ErrRegistrationIPBlocked
 		}
 		slog.Error("oauth email register: userRepo.Create failed", "email", email, "signup_source", signupSource, "error", err.Error())
 		return nil, nil, ErrServiceUnavailable
@@ -242,10 +248,16 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 		Status:       StatusActive,
 		SignupSource: signupSource,
 	}
+	if err := s.prepareRegistrationUser(ctx, user); err != nil {
+		return nil, nil, err
+	}
 
 	if err := s.userRepo.CreateWithEmailAliasGuard(ctx, user); err != nil {
 		if errors.Is(err, ErrEmailExists) {
 			return nil, nil, ErrEmailExists
+		}
+		if errors.Is(err, ErrRegistrationIPBlocked) {
+			return nil, nil, ErrRegistrationIPBlocked
 		}
 		return nil, nil, ErrServiceUnavailable
 	}

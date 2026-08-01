@@ -231,6 +231,17 @@
                   </button>
                 </div>
               </div>
+              <!-- Registration IP Risk Button -->
+              <button
+                @click="openIPRisk()"
+                class="btn btn-secondary px-2 md:px-3"
+                :title="t('admin.users.ipRisk.action')"
+                data-test="open-registration-ip-risk"
+              >
+                <Icon name="shield" size="sm" class="md:mr-1.5" />
+                <span class="hidden md:inline">{{ t('admin.users.ipRisk.action') }}</span>
+              </button>
+
               <!-- Attributes Config Button -->
               <button
                 @click="showAttributesModal = true"
@@ -307,6 +318,24 @@
               </span>
               <span v-else class="text-sm text-gray-400">-</span>
             </div>
+          </template>
+
+          <template #cell-registration_ip="{ value, row }">
+            <button
+              v-if="value"
+              type="button"
+              class="group flex items-center gap-1.5 text-left"
+              :title="t('admin.users.ipRisk.openForIp', { ip: value })"
+              @click="openIPRisk(value)"
+            >
+              <code class="whitespace-nowrap rounded bg-gray-100 px-1.5 py-1 text-xs text-gray-700 group-hover:text-primary-600 dark:bg-dark-700 dark:text-gray-300 dark:group-hover:text-primary-400">
+                {{ value }}
+              </code>
+              <span v-if="row.registration_ip_blocked" class="badge badge-danger text-[10px]">
+                {{ t('admin.users.ipRisk.blocked') }}
+              </span>
+            </button>
+            <span v-else class="text-sm text-gray-400">-</span>
           </template>
 
           <!-- Dynamic attribute columns -->
@@ -768,6 +797,12 @@
     <UserBalanceHistoryModal :show="showBalanceHistoryModal" :user="balanceHistoryUser" @close="closeBalanceHistoryModal" @deposit="handleDepositFromHistory" @withdraw="handleWithdrawFromHistory" />
     <GroupReplaceModal :show="showGroupReplaceModal" :user="groupReplaceUser" :old-group="groupReplaceOldGroup" :all-groups="allGroups" @close="closeGroupReplaceModal" @success="loadUsers" />
     <UserAttributesConfigModal :show="showAttributesModal" @close="handleAttributesModalClose" />
+    <UserIPRiskModal
+      :show="showIPRiskModal"
+      :initial-ip="ipRiskInitialIP"
+      @close="closeIPRisk"
+      @changed="loadUsers"
+    />
   </AppLayout>
 </template>
 
@@ -810,6 +845,7 @@ import UserAllowedGroupsModal from '@/components/admin/user/UserAllowedGroupsMod
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
 import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
 import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
+import UserIPRiskModal from '@/components/admin/user/UserIPRiskModal.vue'
 
 const appStore = useAppStore()
 
@@ -865,6 +901,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'id', label: t('admin.users.columns.id'), sortable: true },
   { key: 'username', label: t('admin.users.columns.username'), sortable: true },
   { key: 'notes', label: t('admin.users.columns.notes'), sortable: false },
+  { key: 'registration_ip', label: t('admin.users.columns.registrationIp'), sortable: false },
   // Dynamic attribute columns
   ...attributeColumns.value,
   { key: 'role', label: t('admin.users.columns.role'), sortable: true },
@@ -1325,10 +1362,22 @@ const showDeleteDialog = ref(false)
 const showApiKeysModal = ref(false)
 const showAttributesModal = ref(false)
 const showPlatformQuotaModal = ref(false)
+const showIPRiskModal = ref(false)
+const ipRiskInitialIP = ref('')
 const editingUser = ref<AdminUser | null>(null)
 const deletingUser = ref<AdminUser | null>(null)
 const viewingUser = ref<AdminUser | null>(null)
 const platformQuotaUser = ref<AdminUser | null>(null)
+
+const openIPRisk = (ipAddress = '') => {
+  ipRiskInitialIP.value = ipAddress
+  showIPRiskModal.value = true
+}
+
+const closeIPRisk = () => {
+  showIPRiskModal.value = false
+  ipRiskInitialIP.value = ''
+}
 
 const handlePlatformQuota = (user: AdminUser) => {
   platformQuotaUser.value = user

@@ -19,6 +19,37 @@ type userRepoStubForListUsers struct {
 	listWithFiltersParams pagination.PaginationParams
 	lastUsedByUserID      map[int64]*time.Time
 	lastUsedErr           error
+	registrationIPInfo    map[int64]RegistrationIPInfo
+	registrationIPErr     error
+}
+
+func (s *userRepoStubForListUsers) GetRegistrationIPInfoByUserIDs(_ context.Context, userIDs []int64) (map[int64]RegistrationIPInfo, error) {
+	if s.registrationIPErr != nil {
+		return nil, s.registrationIPErr
+	}
+	result := make(map[int64]RegistrationIPInfo, len(userIDs))
+	for _, userID := range userIDs {
+		if info, ok := s.registrationIPInfo[userID]; ok {
+			result[userID] = info
+		}
+	}
+	return result, nil
+}
+
+func (s *userRepoStubForListUsers) ListRegistrationIPRisks(context.Context, pagination.PaginationParams) ([]RegistrationIPRisk, int64, error) {
+	panic("unexpected ListRegistrationIPRisks call")
+}
+
+func (s *userRepoStubForListUsers) IsRegistrationIPBlocked(context.Context, string) (bool, error) {
+	panic("unexpected IsRegistrationIPBlocked call")
+}
+
+func (s *userRepoStubForListUsers) BlockRegistrationIP(context.Context, string, string, int64) (*RegistrationIPBlock, error) {
+	panic("unexpected BlockRegistrationIP call")
+}
+
+func (s *userRepoStubForListUsers) UnblockRegistrationIP(context.Context, string) error {
+	panic("unexpected UnblockRegistrationIP call")
 }
 
 func (s *userRepoStubForListUsers) ListWithFilters(_ context.Context, params pagination.PaginationParams, _ UserListFilters) ([]User, *pagination.PaginationResult, error) {
@@ -182,4 +213,20 @@ func TestAdminService_ListUsers_PopulatesLastUsedAt(t *testing.T) {
 	require.Len(t, users, 1)
 	require.NotNil(t, users[0].LastUsedAt)
 	require.WithinDuration(t, lastUsed, *users[0].LastUsedAt, time.Second)
+}
+
+func TestAdminService_ListUsers_PopulatesRegistrationIPInfo(t *testing.T) {
+	userRepo := &userRepoStubForListUsers{
+		users: []User{{ID: 101, Email: "u@example.com"}},
+		registrationIPInfo: map[int64]RegistrationIPInfo{
+			101: {IPAddress: "203.0.113.9", Blocked: true},
+		},
+	}
+	svc := &adminServiceImpl{userRepo: userRepo}
+
+	users, _, err := svc.ListUsers(context.Background(), 1, 20, UserListFilters{}, "", "")
+
+	require.NoError(t, err)
+	require.Equal(t, "203.0.113.9", users[0].RegistrationIP)
+	require.True(t, users[0].RegistrationIPBlocked)
 }

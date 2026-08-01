@@ -55,6 +55,35 @@ export interface BatchUpdateUserLimitsResponse {
   affected: number
 }
 
+export interface RegistrationIPRiskUser {
+  id: number
+  email: string
+  username: string
+  status: 'active' | 'disabled'
+  created_at: string
+}
+
+export interface RegistrationIPRisk {
+  ip_address: string
+  user_count: number
+  users: RegistrationIPRiskUser[]
+  first_registered_at?: string | null
+  last_registered_at?: string | null
+  blocked: boolean
+  block_reason: string
+  blocked_at?: string | null
+  blocked_by?: number | null
+}
+
+export interface RegistrationIPBlock {
+  id: number
+  ip_address: string
+  reason: string
+  created_by?: number | null
+  created_at: string
+  updated_at: string
+}
+
 /**
  * List all users with pagination
  * @param page - Page number (default: 1)
@@ -327,6 +356,36 @@ export async function bindUserAuthIdentity(
   return data
 }
 
+export async function listRegistrationIPRisks(
+  page: number = 1,
+  pageSize: number = 20
+): Promise<PaginatedResponse<RegistrationIPRisk>> {
+  const { data } = await apiClient.get<PaginatedResponse<RegistrationIPRisk>>(
+    '/admin/users/registration-ip-risks',
+    { params: { page, page_size: pageSize } }
+  )
+  return data
+}
+
+export async function blockRegistrationIP(
+  ipAddress: string,
+  reason: string = ''
+): Promise<RegistrationIPBlock> {
+  const { data } = await apiClient.post<RegistrationIPBlock>(
+    '/admin/users/registration-ip-blocks',
+    { ip_address: ipAddress, reason }
+  )
+  return data
+}
+
+export async function unblockRegistrationIP(ipAddress: string): Promise<{ ip_address: string }> {
+  const { data } = await apiClient.delete<{ ip_address: string }>(
+    '/admin/users/registration-ip-blocks',
+    { params: { ip_address: ipAddress } }
+  )
+  return data
+}
+
 /**
  * Platform quota types
  */
@@ -414,6 +473,9 @@ export const usersAPI = {
   getUserBalanceHistory,
   replaceGroup,
   bindUserAuthIdentity,
+  listRegistrationIPRisks,
+  blockRegistrationIP,
+  unblockRegistrationIP,
   getPlatformQuotas,
   updatePlatformQuotas,
   resetPlatformQuotaWindow,
