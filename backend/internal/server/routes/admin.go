@@ -290,6 +290,9 @@ func registerUserManagementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	users := admin.Group("/users")
 	{
 		users.GET("", h.Admin.User.List)
+		users.GET("/registration-ip-risks", h.Admin.User.ListRegistrationIPRisks)
+		users.POST("/registration-ip-blocks", h.Admin.User.BlockRegistrationIP)
+		users.DELETE("/registration-ip-blocks", h.Admin.User.UnblockRegistrationIP)
 		users.GET("/:id", h.Admin.User.GetByID)
 		users.POST("/:id/auth-identities", h.Admin.User.BindAuthIdentity)
 		users.POST("", h.Admin.User.Create)

@@ -38,6 +38,17 @@ func (s *adminServiceImpl) ListUsers(ctx context.Context, page, pageSize int, fi
 				users[i].LastUsedAt = lastUsedByUserID[users[i].ID]
 			}
 		}
+		if ipRepo, ok := s.userRepo.(UserRegistrationIPRepository); ok {
+			ipInfoByUserID, ipErr := ipRepo.GetRegistrationIPInfoByUserIDs(ctx, userIDs)
+			if ipErr != nil {
+				return nil, 0, fmt.Errorf("load user registration IPs: %w", ipErr)
+			}
+			for i := range users {
+				info := ipInfoByUserID[users[i].ID]
+				users[i].RegistrationIP = info.IPAddress
+				users[i].RegistrationIPBlocked = info.Blocked
+			}
+		}
 	}
 	// 批量加载用户专属分组倍率
 	if s.userGroupRateRepo != nil && len(users) > 0 {
@@ -89,6 +100,15 @@ func (s *adminServiceImpl) GetUser(ctx context.Context, id int64) (*User, error)
 	} else {
 		user.LastUsedAt = lastUsedAt
 	}
+	if ipRepo, ok := s.userRepo.(UserRegistrationIPRepository); ok {
+		ipInfoByUserID, ipErr := ipRepo.GetRegistrationIPInfoByUserIDs(ctx, []int64{id})
+		if ipErr != nil {
+			return nil, fmt.Errorf("load user registration IP: %w", ipErr)
+		}
+		info := ipInfoByUserID[id]
+		user.RegistrationIP = info.IPAddress
+		user.RegistrationIPBlocked = info.Blocked
+	}
 	// 加载用户专属分组倍率
 	if s.userGroupRateRepo != nil {
 		rates, err := s.userGroupRateRepo.GetByUserID(ctx, id)
@@ -102,7 +122,55 @@ func (s *adminServiceImpl) GetUser(ctx context.Context, id int64) (*User, error)
 }
 
 func (s *adminServiceImpl) GetUserIncludeDeleted(ctx context.Context, id int64) (*User, error) {
-	return s.userRepo.GetByIDIncludeDeleted(ctx, id)
+	user, err := s.userRepo.GetByIDIncludeDeleted(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if ipRepo, ok := s.userRepo.(UserRegistrationIPRepository); ok {
+		ipInfoByUserID, ipErr := ipRepo.GetRegistrationIPInfoByUserIDs(ctx, []int64{id})
+		if ipErr != nil {
+			return nil, fmt.Errorf("load user registration IP: %w", ipErr)
+		}
+		info := ipInfoByUserID[id]
+		user.RegistrationIP = info.IPAddress
+		user.RegistrationIPBlocked = info.Blocked
+	}
+	return user, nil
+}
+
+func (s *adminServiceImpl) registrationIPRepository() (UserRegistrationIPRepository, error) {
+	repo, ok := s.userRepo.(UserRegistrationIPRepository)
+	if !ok {
+		return nil, fmt.Errorf("registration IP repository is not configured")
+	}
+	return repo, nil
+}
+
+func (s *adminServiceImpl) ListRegistrationIPRisks(ctx context.Context, page, pageSize int) ([]RegistrationIPRisk, int64, error) {
+	repo, err := s.registrationIPRepository()
+	if err != nil {
+		return nil, 0, err
+	}
+	return repo.ListRegistrationIPRisks(ctx, pagination.PaginationParams{
+		Page:     page,
+		PageSize: pageSize,
+	})
+}
+
+func (s *adminServiceImpl) BlockRegistrationIP(ctx context.Context, ipAddress, reason string, actorAdminID int64) (*RegistrationIPBlock, error) {
+	repo, err := s.registrationIPRepository()
+	if err != nil {
+		return nil, err
+	}
+	return repo.BlockRegistrationIP(ctx, ipAddress, reason, actorAdminID)
+}
+
+func (s *adminServiceImpl) UnblockRegistrationIP(ctx context.Context, ipAddress string) error {
+	repo, err := s.registrationIPRepository()
+	if err != nil {
+		return err
+	}
+	return repo.UnblockRegistrationIP(ctx, ipAddress)
 }
 
 // normalizeUserRole 校验并归一化角色输入。

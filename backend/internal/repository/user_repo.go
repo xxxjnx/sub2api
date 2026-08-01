@@ -95,6 +95,33 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 	}
 	defer releaseEmailLock()
 
+	registrationIP, err := service.NormalizeRegistrationIP(userIn.RegistrationIP)
+	if err != nil {
+		return err
+	}
+	if registrationIP != "" {
+		exec := txAwareSQLExecutor(txCtx, r.sql, r.client)
+		releaseIPLock, lockErr := lockRepositoryScopedKeys(
+			txCtx,
+			txClient,
+			exec,
+			registrationIPLockKey(registrationIP),
+		)
+		if lockErr != nil {
+			return lockErr
+		}
+		defer releaseIPLock()
+
+		blocked, blockedErr := registrationIPBlockedWithExecutor(txCtx, exec, registrationIP)
+		if blockedErr != nil {
+			return blockedErr
+		}
+		if blocked {
+			return service.ErrRegistrationIPBlocked
+		}
+		userIn.RegistrationIP = registrationIP
+	}
+
 	if err := ensureNormalizedEmailAvailableWithClient(txCtx, txClient, 0, userIn.Email); err != nil {
 		return err
 	}
@@ -125,6 +152,23 @@ func (r *userRepository) create(ctx context.Context, userIn *service.User, guard
 		Save(txCtx)
 	if err != nil {
 		return translatePersistenceError(err, nil, service.ErrEmailExists)
+	}
+	if registrationIP != "" {
+		exec := txAwareSQLExecutor(txCtx, r.sql, r.client)
+		result, updateErr := exec.ExecContext(
+			txCtx,
+			"UPDATE users SET registration_ip = $1 WHERE id = $2",
+			registrationIP,
+			created.ID,
+		)
+		if updateErr != nil {
+			return updateErr
+		}
+		if affected, rowsErr := result.RowsAffected(); rowsErr != nil {
+			return rowsErr
+		} else if affected != 1 {
+			return fmt.Errorf("persist registration IP: updated %d users", affected)
+		}
 	}
 
 	if err := r.syncUserAllowedGroupsWithClient(txCtx, txClient, created.ID, userIn.AllowedGroups); err != nil {

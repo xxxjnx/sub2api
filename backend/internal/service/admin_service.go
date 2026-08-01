@@ -29,6 +29,9 @@ type AdminService interface {
 	// Also returns totalRecharged (sum of all positive balance top-ups).
 	GetUserBalanceHistory(ctx context.Context, userID int64, page, pageSize int, codeType string) ([]RedeemCode, int64, float64, error)
 	BindUserAuthIdentity(ctx context.Context, userID int64, input AdminBindAuthIdentityInput) (*AdminBoundAuthIdentity, error)
+	ListRegistrationIPRisks(ctx context.Context, page, pageSize int) ([]RegistrationIPRisk, int64, error)
+	BlockRegistrationIP(ctx context.Context, ipAddress, reason string, actorAdminID int64) (*RegistrationIPBlock, error)
+	UnblockRegistrationIP(ctx context.Context, ipAddress string) error
 
 	// Group management
 	ListGroups(ctx context.Context, page, pageSize int, platform, status, search string, isExclusive *bool, sortBy, sortOrder string) ([]Group, int64, error)

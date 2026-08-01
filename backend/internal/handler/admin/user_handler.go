@@ -111,6 +111,62 @@ type BindUserAuthIdentityChannelRequest struct {
 	Metadata       map[string]any `json:"metadata"`
 }
 
+type BlockRegistrationIPRequest struct {
+	IPAddress string `json:"ip_address" binding:"required"`
+	Reason    string `json:"reason"`
+}
+
+// ListRegistrationIPRisks lists registration IPs shared by multiple active
+// user records, plus every currently blocked registration IP.
+func (h *UserHandler) ListRegistrationIPRisks(c *gin.Context) {
+	page, pageSize := response.ParsePagination(c)
+	risks, total, err := h.adminService.ListRegistrationIPRisks(c.Request.Context(), page, pageSize)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, risks, total, page, pageSize)
+}
+
+func (h *UserHandler) BlockRegistrationIP(c *gin.Context) {
+	var req BlockRegistrationIPRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	req.IPAddress = strings.TrimSpace(req.IPAddress)
+	req.Reason = strings.TrimSpace(req.Reason)
+	if len([]rune(req.Reason)) > 500 {
+		response.BadRequest(c, "Block reason must be 500 characters or fewer")
+		return
+	}
+
+	block, err := h.adminService.BlockRegistrationIP(
+		c.Request.Context(),
+		req.IPAddress,
+		req.Reason,
+		getAdminIDFromContext(c),
+	)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, block)
+}
+
+func (h *UserHandler) UnblockRegistrationIP(c *gin.Context) {
+	ipAddress := strings.TrimSpace(c.Query("ip_address"))
+	if ipAddress == "" {
+		response.BadRequest(c, "ip_address is required")
+		return
+	}
+	if err := h.adminService.UnblockRegistrationIP(c.Request.Context(), ipAddress); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"ip_address": ipAddress})
+}
+
 // List handles listing all users with pagination
 // GET /api/v1/admin/users
 // Query params:

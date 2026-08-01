@@ -265,6 +265,18 @@ func (s *stubAdminService) BindUserAuthIdentity(ctx context.Context, userID int6
 	return result, nil
 }
 
+func (s *stubAdminService) ListRegistrationIPRisks(context.Context, int, int) ([]service.RegistrationIPRisk, int64, error) {
+	return nil, 0, nil
+}
+
+func (s *stubAdminService) BlockRegistrationIP(_ context.Context, ipAddress, reason string, actorAdminID int64) (*service.RegistrationIPBlock, error) {
+	return &service.RegistrationIPBlock{IPAddress: ipAddress, Reason: reason, CreatedBy: &actorAdminID}, nil
+}
+
+func (s *stubAdminService) UnblockRegistrationIP(context.Context, string) error {
+	return nil
+}
+
 func (s *stubAdminService) ListGroups(ctx context.Context, page, pageSize int, platform, status, search string, isExclusive *bool, sortBy, sortOrder string) ([]service.Group, int64, error) {
 	return s.groups, int64(len(s.groups)), nil
 }

@@ -223,11 +223,17 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		RPMLimit:     defaultRPMLimit,
 		Status:       StatusActive,
 	}
+	if err := s.prepareRegistrationUser(ctx, user); err != nil {
+		return "", nil, err
+	}
 
 	if err := s.userRepo.CreateWithEmailAliasGuard(ctx, user); err != nil {
 		// 优先检查邮箱冲突错误（竞态条件下可能发生）
 		if errors.Is(err, ErrEmailExists) {
 			return "", nil, ErrEmailExists
+		}
+		if errors.Is(err, ErrRegistrationIPBlocked) {
+			return "", nil, ErrRegistrationIPBlocked
 		}
 		logger.LegacyPrintf("service.auth", "[Auth] Database error creating user: %v", err)
 		return "", nil, ErrServiceUnavailable
@@ -528,6 +534,9 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 				Status:       StatusActive,
 				SignupSource: signupSource,
 			}
+			if err := s.prepareRegistrationUser(ctx, newUser); err != nil {
+				return "", nil, err
+			}
 
 			if err := s.userRepo.Create(ctx, newUser); err != nil {
 				if errors.Is(err, ErrEmailExists) {
@@ -537,6 +546,8 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 						logger.LegacyPrintf("service.auth", "[Auth] Database error getting user after conflict: %v", err)
 						return "", nil, ErrServiceUnavailable
 					}
+				} else if errors.Is(err, ErrRegistrationIPBlocked) {
+					return "", nil, ErrRegistrationIPBlocked
 				} else {
 					logger.LegacyPrintf("service.auth", "[Auth] Database error creating oauth user: %v", err)
 					return "", nil, ErrServiceUnavailable
@@ -677,6 +688,9 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 				Status:       StatusActive,
 				SignupSource: signupSource,
 			}
+			if err := s.prepareRegistrationUser(ctx, newUser); err != nil {
+				return nil, nil, err
+			}
 
 			if s.entClient != nil && invitationRedeemCode != nil {
 				tx, err := s.entClient.Tx(ctx)
@@ -694,6 +708,8 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 							logger.LegacyPrintf("service.auth", "[Auth] Database error getting user after conflict: %v", err)
 							return nil, nil, ErrServiceUnavailable
 						}
+					} else if errors.Is(err, ErrRegistrationIPBlocked) {
+						return nil, nil, ErrRegistrationIPBlocked
 					} else {
 						logger.LegacyPrintf("service.auth", "[Auth] Database error creating oauth user: %v", err)
 						return nil, nil, ErrServiceUnavailable
@@ -722,6 +738,8 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 							logger.LegacyPrintf("service.auth", "[Auth] Database error getting user after conflict: %v", err)
 							return nil, nil, ErrServiceUnavailable
 						}
+					} else if errors.Is(err, ErrRegistrationIPBlocked) {
+						return nil, nil, ErrRegistrationIPBlocked
 					} else {
 						logger.LegacyPrintf("service.auth", "[Auth] Database error creating oauth user: %v", err)
 						return nil, nil, ErrServiceUnavailable

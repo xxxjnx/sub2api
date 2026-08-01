@@ -109,6 +109,9 @@ export interface AdminUser extends User {
   group_rates?: Record<number, number>
   // 当前并发数（仅管理员列表接口返回）
   current_concurrency?: number
+  // Public self-registration IP (admin-created and legacy users may not have one).
+  registration_ip?: string | null
+  registration_ip_blocked?: boolean
 }
 
 export interface LoginRequest {

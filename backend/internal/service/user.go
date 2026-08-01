@@ -28,12 +28,17 @@ type User struct {
 	// value expected in JWT claims and refresh-token state.
 	TokenVersionResolved bool
 	SignupSource         string
-	LastLoginAt          *time.Time
-	LastActiveAt         *time.Time
-	LastUsedAt           *time.Time
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	DeletedAt            *time.Time // 非 nil 表示用户已软删除
+	// RegistrationIP is the canonical client IP captured when the account was
+	// first created through a public registration flow. Admin-created users do
+	// not have a registration IP.
+	RegistrationIP        string
+	RegistrationIPBlocked bool
+	LastLoginAt           *time.Time
+	LastActiveAt          *time.Time
+	LastUsedAt            *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	DeletedAt             *time.Time // 非 nil 表示用户已软删除
 
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]rateMultiplier
